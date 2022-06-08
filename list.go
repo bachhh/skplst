@@ -2,15 +2,16 @@ package skplst
 
 import "math/rand"
 
-const MAXLEVEL = 10
+const MAXLEVEL = 16 // this should cap num nodes at 2^16
 const NOTFOUND = -1
 
 var NIL *Node = nil
 
 // SkipList header of the skiplist
 type SkipList struct {
-	level   uint
-	forward []*Node
+	maxLevel uint // max level of skiplist
+	forward  []*Node
+	count    uint
 }
 
 func NewSkipList() *SkipList {
@@ -18,13 +19,16 @@ func NewSkipList() *SkipList {
 }
 
 type Node struct {
+	// forward[i] store pointers to all level i-th nodes
+	// at level 0, we have the standard linked list
 	forward []*Node
 	key     int
 }
 
 // level 0 is the leaf node, so
-func (this *SkipList) generateLevel() uint {
+func (s *SkipList) generateLevel() uint {
 	r := rand.Int31()
+
 	// instead of calling rand n times, call once and count num of consecutive 1s
 	var n uint = 0
 	for r&(1<<n) > 0 {
@@ -33,18 +37,47 @@ func (this *SkipList) generateLevel() uint {
 	return n
 }
 
+// Search for key k
+// @return true if key k is found
 func (s *SkipList) Search(k int) bool {
-	x := s.forward[0]
-	for i := s.level; i > 0; i-- {
-		for x.forward[i].key < k {
-			x = x.forward[i]
+	curNode := s.forward[0]
+	for i := s.maxLevel; i > 0; i-- {
+		// "skip" to largest node with key < k
+		for curNode.forward[i] != NIL && curNode.forward[i].key < k {
+			curNode = curNode.forward[i]
+		}
+		// if curNode.forward[i].key >= k, we skipped too much, descend to lower level
+	}
+
+	// invariant: curNode.key < k
+	curNode = curNode.forward[0] // check the next node
+	if curNode != NIL && curNode.key == k {
+		return true
+	}
+	return false
+}
+
+// Insert
+// @return true insert not duplicate, false if duplicate key
+func (s *SkipList) Insert(k int) bool {
+
+	// this is our level for the node
+	updateList := []*Node{}
+
+	curNode := s.forward[0]
+	for i := s.maxLevel; i > 0; i-- {
+		for curNode.forward[i] != NIL && curNode.forward[i].key < k {
+			curNode = curNode.forward[i]
+		}
+		if updateList[len(updateList)-1] != curNode {
+			updateList = append(updateList, curNode.forward[i])
 		}
 	}
 
-	x = x.forward[1]
-	if x.key == k {
-		return true
+	curNode = curNode.forward[0]
+	if curNode != NIL && curNode.key == k {
+		return false
 	}
-
-	return false
+	n := s.generateLevel()
+	return true
 }
