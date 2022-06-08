@@ -14,6 +14,10 @@ type SkipList struct {
 	count    uint
 }
 
+// TODO:
+// OPTIMIZE1: forward []*Node doesn't need to store MAXLEVEL, only the current max level
+// OPTIMIZE2: faster roll for random level
+
 func NewSkipList() *SkipList {
 	return &SkipList{forward: []*Node{NIL}}
 }
@@ -23,6 +27,7 @@ type Node struct {
 	// at level 0, we have the standard linked list
 	forward []*Node
 	key     int
+	level   uint
 }
 
 // level 0 is the leaf node, so
@@ -31,7 +36,7 @@ func (s *SkipList) generateLevel() uint {
 
 	// instead of calling rand n times, call once and count num of consecutive 1s
 	var n uint = 0
-	for r&(1<<n) > 0 {
+	for r&(1<<n) > 0 && n < MAXLEVEL {
 		n++
 	}
 	return n
@@ -41,7 +46,7 @@ func (s *SkipList) generateLevel() uint {
 // @return true if key k is found
 func (s *SkipList) Search(k int) bool {
 	curNode := s.forward[0]
-	for i := s.maxLevel; i > 0; i-- {
+	for i := MAXLEVEL; i > 0; i-- {
 		// "skip" to largest node with key < k
 		for curNode.forward[i] != NIL && curNode.forward[i].key < k {
 			curNode = curNode.forward[i]
@@ -62,16 +67,14 @@ func (s *SkipList) Search(k int) bool {
 func (s *SkipList) Insert(k int) bool {
 
 	// this is our level for the node
-	updateList := []*Node{}
+	updateList := make([]*Node, MAXLEVEL)
 
 	curNode := s.forward[0]
-	for i := s.maxLevel; i > 0; i-- {
+	for i := MAXLEVEL; i > 0; i-- {
 		for curNode.forward[i] != NIL && curNode.forward[i].key < k {
 			curNode = curNode.forward[i]
 		}
-		if updateList[len(updateList)-1] != curNode {
-			updateList = append(updateList, curNode.forward[i])
-		}
+		updateList[i] = curNode
 	}
 
 	curNode = curNode.forward[0]
@@ -79,5 +82,34 @@ func (s *SkipList) Insert(k int) bool {
 		return false
 	}
 	n := s.generateLevel()
+	newNode := &Node{key: k, forward: make([]*Node, MAXLEVEL), level: n}
+
+	for i := n; i >= 0; i-- {
+		newNode.forward[i] = updateList[i].forward[i]
+		updateList[i].forward[i] = newNode
+	}
+	return true
+}
+
+func (s *SkipList) Delete(k int) bool {
+	updateList := make([]*Node, MAXLEVEL)
+
+	curNode := s.forward[0]
+	for i := MAXLEVEL; i > 0; i-- {
+		for curNode.forward[i] != NIL && curNode.forward[i].key < k {
+			curNode = curNode.forward[i]
+		}
+		updateList[i] = curNode
+	}
+
+	curNode = curNode.forward[0]
+	if curNode != NIL && curNode.key == k {
+		return false
+	}
+
+	n := curNode.level
+	for i := n; i >= 0; i-- {
+		updateList[i].forward[i] = curNode.forward[i]
+	}
 	return true
 }
