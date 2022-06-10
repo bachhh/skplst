@@ -74,25 +74,22 @@ func Dot(list *SkipList) *gographviz.Graph {
 	graph.AddNode("", "head", nil)
 	// the first port is node name head/tail/<key>
 	AddRecordPort(graph.Nodes.Lookup["head"], fmt.Sprintf("f%d", 0), "head")
-	for i := 0; i < len(list.Forward); i++ {
+	for i := 0; i < len(list.Head.Forward); i++ {
 		AddRecordPort(graph.Nodes.Lookup["head"], fmt.Sprintf("f%d", i+1), "•")
 	}
 
 	graph.AddNode("", "tail", nil)
 	AddRecordPort(graph.Nodes.Lookup["tail"], fmt.Sprintf("f%d", 0), "tail")
-	for i := 0; i < len(list.Forward); i++ {
+	for i := 0; i < len(list.Head.Forward); i++ {
 		AddRecordPort(graph.Nodes.Lookup["tail"], fmt.Sprintf("f%d", i+1), "•")
 	}
 	for i := 0; i < 10; i++ {
 		curNode := graph.Nodes.Lookup[strconv.Itoa(i)]
-		listNode := nil
+		var listNode *Node = nil
 		AddRecordPort(curNode, fmt.Sprintf("f%d", 0), strconv.Itoa(i))
 		for i := 0; i < len(listNode.Forward); i++ {
 			AddRecordPort(curNode, fmt.Sprintf("f%d", i+1), "•")
 		}
-	}
-	// add edges
-	for {
 	}
 
 	return graph

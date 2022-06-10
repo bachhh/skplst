@@ -1,16 +1,21 @@
 package skplst
 
-import "math/rand"
+import (
+	"math/rand"
+)
 
 const MAXLEVEL = 16 // this should cap num nodes at 2^16
 const NOTFOUND = -1
 
-var NIL *Node = nil
+const (
+	HEADTYPE = 1
+	TAILTYPE = 2
+)
 
 // SkipList header of the skiplist
 type SkipList struct {
-	MaxLevel uint // max level of skiplist
-	Forward  []*Node
+	MaxLevel uint  // max level of skiplist
+	Head     *Node // point to header
 	Count    uint
 }
 
@@ -18,7 +23,8 @@ type SkipList struct {
 // OPTIMIZE1: forward []*Node doesn't need to store MAXLEVEL, only the current max level
 // OPTIMIZE2: faster roll for random level
 func NewSkipList() *SkipList {
-	return &SkipList{Forward: []*Node{NIL}}
+	tail := &Node{nodeType: TAILTYPE}
+	return &SkipList{Head: &Node{nodeType: HEADTYPE, Forward: []*Node{tail}}}
 }
 
 type Node struct {
@@ -27,6 +33,8 @@ type Node struct {
 	Forward []*Node
 	Key     int
 	Level   uint
+
+	nodeType int // 0 = normal, 1 = head, 2 = tail
 }
 
 // level 0 is the leaf node, so
@@ -41,21 +49,36 @@ func (s *SkipList) generateLevel() uint {
 	return n
 }
 
+// check that k is less than key of node n lessThan
+func (s *SkipList) lessThan(node *Node, k int) bool {
+	if node == nil {
+		return false
+	}
+
+	if node.nodeType == TAILTYPE { // everything is less than TAIL
+		return true
+	} else if node.nodeType == HEADTYPE {
+		return false
+	}
+	return k < node.Key
+
+}
+
 // Search for key k
 // @return true if key k is found
 func (s *SkipList) Search(k int) bool {
-	curNode := s.Forward[0]
+	curNode := s.Head
+
 	for i := MAXLEVEL; i > 0; i-- {
 		// "skip" to largest node with key < k
-		for curNode.Forward[i] != NIL && curNode.Forward[i].Key < k {
+		for s.lessThan(curNode.Forward[i], k) {
 			curNode = curNode.Forward[i]
 		}
 		// if curNode.forward[i].key >= k, we skipped too much, descend to lower level
 	}
 
-	// invariant: curNode.key < k
-	curNode = curNode.Forward[0] // check the next node
-	if curNode != NIL && curNode.Key == k {
+	// check the next node
+	if curNode.Forward[0].nodeType != TAILTYPE && curNode.Forward[0].Key == k {
 		return true
 	}
 	return false
@@ -68,18 +91,19 @@ func (s *SkipList) Insert(k int) bool {
 	// this is our level for the node
 	updateList := make([]*Node, MAXLEVEL)
 
-	curNode := s.Forward[0]
+	curNode := s.Head
 	for i := MAXLEVEL; i > 0; i-- {
-		for curNode.Forward[i] != NIL && curNode.Forward[i].Key < k {
+		for s.lessThan(curNode, k) {
 			curNode = curNode.Forward[i]
 		}
 		updateList[i] = curNode
 	}
 
-	curNode = curNode.Forward[0]
-	if curNode != NIL && curNode.Key == k {
+	nextNode := curNode.Forward[0]
+	if nextNode.nodeType != TAILTYPE && nextNode.Key == k {
 		return false
 	}
+
 	n := s.generateLevel()
 	newNode := &Node{Key: k, Forward: make([]*Node, MAXLEVEL), Level: n}
 	// if n >= s.MaxLevel+1 {
@@ -96,16 +120,16 @@ func (s *SkipList) Insert(k int) bool {
 func (s *SkipList) Delete(k int) bool {
 	updateList := make([]*Node, MAXLEVEL)
 
-	curNode := s.Forward[0]
+	curNode := s.Head
 	for i := MAXLEVEL; i > 0; i-- {
-		for curNode.Forward[i] != NIL && curNode.Forward[i].Key < k {
+		for s.lessThan(curNode, k) {
 			curNode = curNode.Forward[i]
 		}
 		updateList[i] = curNode
 	}
 
 	curNode = curNode.Forward[0]
-	if curNode != NIL && curNode.Key == k {
+	if curNode.nodeType != TAILTYPE && curNode.Key == k {
 		return false
 	}
 
