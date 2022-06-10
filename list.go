@@ -9,7 +9,7 @@ var NIL *Node = nil
 
 // SkipList header of the skiplist
 type SkipList struct {
-	maxLevel uint // max level of skiplist
+	MaxLevel uint // max level of skiplist
 	Forward  []*Node
 	Count    uint
 }
@@ -82,6 +82,9 @@ func (s *SkipList) Insert(k int) bool {
 	}
 	n := s.generateLevel()
 	newNode := &Node{Key: k, Forward: make([]*Node, MAXLEVEL), Level: n}
+	// if n >= s.MaxLevel+1 {
+	// 	n = s.MaxLevel + 1
+	// }
 
 	for i := n; i >= 0; i-- {
 		newNode.Forward[i] = updateList[i].Forward[i]
